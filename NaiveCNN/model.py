@@ -1,5 +1,7 @@
 import numpy as np
 
+from .utils import im2col
+
 class ConvolutionalNet():
     """
         Description:
@@ -24,10 +26,12 @@ class ConvolutionalNet():
         """
 
     @staticmethod
-    def _convolution(inputs):
+    def _convolution(inputs, kernels):
         """
             Description: Convolution layer
         """
+
+        
 
     @staticmethod
     def _max_pool(inputs, size, stride, padding):
@@ -40,33 +44,28 @@ class ConvolutionalNet():
                 padding -> The padding (padding with 0 so the last column isn't left out)
         """
 
-        if padding >= stride:
-            padding = size 
-
         inp_sp = np.shape(inputs)
         # We reshape it so every filter is considered an image.
         # For example, 10 x 4 x 32 x 32 -> 40 x 1 x 32 x 32
         reshaped = np.reshape(inputs, (inp_sp[0] * inp_sp[1], 1, inp_sp[2], inp_sp[3]))
         # This will reshape the previously reshaped input to (if the size is 2) 4 x 10240
-        tile_col = im2col_indices(reshaped, size, size, stride=stride, padding=padding)
+        tile_col = im2col(reshaped, size, stride=stride, padding=padding)
         # We take the max of each column
         max_ids = np.argmax(tile_col, axis=0)
         # We get the resulting 1 x 10240 vector
         result = tile_col[max_ids, range(max_ids.size)]
-        # Reshape to get matrices
-        # 2,2,0 -> 28 / 2 = 14
-        # 2,2,1 -> 28 / 2 = 14
-        # 2,3,0 -> 28 / 3 = 9
-        # 2,3,1 -> 29 / 3 = 9
-        # 2,3,1 -> 30 / 3 = 10
-        result = np.reshape(result, )
 
-        # Make it from 16 x 16 x 10 x 4 to 10 x 4 x 16 x 16 
-        return np.reshape(result, (2, 3, 0, 1))
+        new_size = (inp_sp[2] - size + 2 * padding) / stride + 1
+
+        result = np.reshape(result, (new_size, new_size, inp_sp[0], inp_sp[1]))
+
+        # Make it from 16 x 16 x 10 x 4 to 10 x 4 x 16 x 16
+        return np.transpose(result, (2, 3, 0, 1))
 
     @staticmethod
-    def _avg_pool(inputs, size, string, padding):
+    def _avg_pool(inputs, size, stride, padding):
         """
+            (Copy & paste of the max pool code with np.mean instead of np.argmax)
             Description: Average pool layer
             Parameters:
                 inputs -> The input of size [batch_size] x [filter] x [shape_x] x [shape_y]
@@ -75,25 +74,40 @@ class ConvolutionalNet():
                 padding -> The padding (padding with 0 so the last column isn't left out)
         """
 
+        inp_sp = np.shape(inputs)
+        reshaped = np.reshape(inputs, (inp_sp[0] * inp_sp[1], 1, inp_sp[2], inp_sp[3]))
+        tile_col = im2col(reshaped, size, stride=stride, padding=padding)
+        max_ids = np.mean(tile_col, axis=0)
+        result = tile_col[max_ids, range(max_ids.size)]
+        new_size = (inp_sp[2] - size + 2 * padding) / stride + 1
+        result = np.reshape(result, (new_size, new_size, inp_sp[0], inp_sp[1]))
+        return np.transpose(result, (2, 3, 0, 1))
+
     @staticmethod
     def _rectified_linear(inputs):
         """
             Description: Rectified Linear Unit layer (ReLU)
         """
 
+        return np.maximum(inputs, 0, inputs)
+
     @staticmethod
-    def _fully_connected(input, weights, unit_count):
+    def _fully_connected(inputs, weights, unit_count):
         """
             Description: Fully connected layer
             Parameters:
                 unit_count -> The number of units in the layer
         """
 
+        return np.dot(inputs, np.reshape(weights, (np.shape(inputs), np.shape(unit_count))))
+
     @staticmethod
-    def _softmax(input, weights, output):
+    def _softmax(inputs):
         """
             Description: Softmax function for the output layer
         """
+
+        return np.exp(x) / np.sum(np.exp(x), axis=0)
 
     @staticmethod
     def _backpropagation():
