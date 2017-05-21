@@ -7,12 +7,16 @@ class ConvolutionalNet():
         Description:
             The definition of our naive CNN, it is made of
                 One convolution layer
-                One detector layer
+                One ReLU layer
                 One pooling layer
                 One fully connected layer
                 One softmax layer / output layer
             It is loosely based on the ninth chapter of the excellent deep learning book
             (http://www.deeplearningbook.org/contents/convnets.html)
+        Good read on the subject:
+            Deep Learning Book (http://www.deeplearningbook.org/)
+            Understanding the difficulty of training deep feedforward neural neural network (http://proceedings.mlr.press/v9/glorot10a/glorot10a.pdf)
+            Delving Deep into Rectifiers (https://arxiv.org/pdf/1502.01852.pdf)
     """
 
     def __init__(self, kernel_count, kernel_size, input_size, output_size):
@@ -21,9 +25,20 @@ class ConvolutionalNet():
             Parameters:
                 kernel_count -> The number of kernel to use
                 kernel_size -> The size of the kernel to use (always a square)
-                output_count -> The number of classes
+                output_size -> The number of classes
                 input_size -> A tuple that defines the size of the input
         """
+        
+        self.kernel_count = kernel_count
+        self.kernel_size = kernel_size
+        self.input_size = input_size
+        self.output_size = output_size
+
+        # Random initialization of our kernels based on a gaussian distribution with a std of 1.0
+        # See https://arxiv.org/pdf/1502.01852.pdf Page 3
+        self.kernels = [
+            np.random.normal(size=(kernel_size, kernel_size)) for x in range(kernel_count)
+        ]
 
     @staticmethod
     def _convolution(inputs, kernels):
@@ -109,8 +124,21 @@ class ConvolutionalNet():
 
         return np.exp(x) / np.sum(np.exp(x), axis=0)
 
-    @staticmethod
-    def _backpropagation():
+    def forwardpropagation(self, inputs):
+        """
+            Description: Gives a response based on input
+        """
+
+        # My goal was to do something like this, but it's unreadable
+        #return _fully_connected(_max_pooling(_rectified_linear(_convolution(inputs, kernels))))
+
+        res_conv = _convolution(inputs, self.kernels)
+        res_relu = _rectified_linear(res_conv)
+        res_pool = _avg_pool(res_relu)
+        res_full = _fully_connected(res_pool, self.full_connected_weights, self.unit_count)
+        return _softmax(res_full)
+
+    def backpropagation(self, mean_squared_error):
         """
             Description: Weight adjusting algorithm
         """
@@ -126,6 +154,14 @@ class ConvolutionalNet():
                 alpha -> The learning rate alpha
         """
 
+        # For the sake of simplicity we use Mean Squared Error
+        for x in range(iteration_count):
+            print('Iteration #{}'.format(x))
+            errors = np.zeros((batch_size, self.output_size))
+            for y in range(batch_size):
+                errors[y, :] = (self.feedforward(data[x * batch_size + y]) - labels[x * batch_size + y])**2
+            self.backpropagation(np.mean(errors, axis=1))
+
     def test(self, data, labels):
         """
             Description: Test the ConvNet
@@ -133,3 +169,10 @@ class ConvolutionalNet():
                 data -> The data to be used for testing
                 labels -> The labels to be used for testing
         """
+
+        good = 0
+        for x in range(np.shape(data)[0]):
+            if np.argmax(feedforward(data[x, :])) == np.argmax(labels[x, :])
+                good += 1
+
+        print('The network successfully identified {} / {} examples.'.format(good, np.shape(data)[0]))
