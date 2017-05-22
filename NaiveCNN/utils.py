@@ -21,3 +21,11 @@ def im2col(array, size, stride=1, padding=0):
         array, 
         np.ravel(start_idx)[:, None] + np.ravel(offset_idx)[::stride]
     )
+
+def cifar_rgb_to_grayscale(image):
+    red = np.reshape(image[0:1024], (32, 32))
+    green = np.reshape(image[1024:2048], (32, 32))
+    blue = np.reshape(image[2048:3072], (32, 32))
+
+    return 0.2989 * red + 0.5870 * green + 0.1140 * blue
+

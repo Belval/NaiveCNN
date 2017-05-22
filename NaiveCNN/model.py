@@ -1,6 +1,6 @@
 import numpy as np
 
-from .utils import im2col
+from utils import im2col
 
 class ConvolutionalNet():
     """
@@ -40,16 +40,23 @@ class ConvolutionalNet():
             np.random.normal(size=(kernel_size, kernel_size)) for x in range(kernel_count)
         ]
 
-    @staticmethod
-    def _convolution(inputs, kernels):
+    def __convolution(self, inputs, stride=1, padding=0):
         """
             Description: Convolution layer
         """
 
+        new_size = (np.shape(inputs)[1] - self.kernel_size + 2 * padding) / stride + 1
+
+        tile_col = im2col(inputs, self.kernel_size, stride, padding)
+
+        kernel_col = np.reshape(self.kernel_count, -1)
+
+        result = np.dot(tile_col, kernel_col)
+
+        return np.reshape(self.kernel_count, new_size, new_size)
         
 
-    @staticmethod
-    def _max_pool(inputs, size, stride, padding):
+    def __max_pool(self, inputs, size, stride, padding):
         """
             Description: Max pool layer
             Parameters:
@@ -61,9 +68,6 @@ class ConvolutionalNet():
 
         inp_sp = np.shape(inputs)
         # We reshape it so every filter is considered an image.
-        # For example, 10 x 4 x 32 x 32 -> 40 x 1 x 32 x 32
-        reshaped = np.reshape(inputs, (inp_sp[0] * inp_sp[1], 1, inp_sp[2], inp_sp[3]))
-        # This will reshape the previously reshaped input to (if the size is 2) 4 x 10240
         tile_col = im2col(reshaped, size, stride=stride, padding=padding)
         # We take the max of each column
         max_ids = np.argmax(tile_col, axis=0)
@@ -72,13 +76,12 @@ class ConvolutionalNet():
 
         new_size = (inp_sp[2] - size + 2 * padding) / stride + 1
 
-        result = np.reshape(result, (new_size, new_size, inp_sp[0], inp_sp[1]))
+        result = np.reshape(result, (new_size, new_size, inp_sp[0]))
 
-        # Make it from 16 x 16 x 10 x 4 to 10 x 4 x 16 x 16
-        return np.transpose(result, (2, 3, 0, 1))
+        # Make it from 16 x 16 x 10 to 10 x 16 x 16
+        return np.transpose(result, (2, 0, 1))
 
-    @staticmethod
-    def _avg_pool(inputs, size, stride, padding):
+    def __avg_pool(self, inputs, size, stride, padding):
         """
             (Copy & paste of the max pool code with np.mean instead of np.argmax)
             Description: Average pool layer
@@ -90,41 +93,37 @@ class ConvolutionalNet():
         """
 
         inp_sp = np.shape(inputs)
-        reshaped = np.reshape(inputs, (inp_sp[0] * inp_sp[1], 1, inp_sp[2], inp_sp[3]))
         tile_col = im2col(reshaped, size, stride=stride, padding=padding)
         max_ids = np.mean(tile_col, axis=0)
         result = tile_col[max_ids, range(max_ids.size)]
         new_size = (inp_sp[2] - size + 2 * padding) / stride + 1
-        result = np.reshape(result, (new_size, new_size, inp_sp[0], inp_sp[1]))
-        return np.transpose(result, (2, 3, 0, 1))
+        result = np.reshape(result, (new_size, new_size, inp_sp[0]))
+        return np.transpose(result, (2, 0, 1))
 
-    @staticmethod
-    def _rectified_linear(inputs):
+    def __rectified_linear(self, inputs):
         """
             Description: Rectified Linear Unit layer (ReLU)
         """
 
         return np.maximum(inputs, 0, inputs)
 
-    @staticmethod
-    def _fully_connected(inputs, weights, unit_count):
+    def __fully_connected(self, inputs, weights):
         """
             Description: Fully connected layer
             Parameters:
                 unit_count -> The number of units in the layer
         """
 
-        return np.dot(inputs, np.reshape(weights, (np.shape(inputs), np.shape(unit_count))))
+        return np.dot(inputs, np.reshape(weights, (np.shape(inputs), np.shape(self.unit_count))))
 
-    @staticmethod
-    def _softmax(inputs):
+    def __softmax(self, inputs):
         """
             Description: Softmax function for the output layer
         """
 
         return np.exp(x) / np.sum(np.exp(x), axis=0)
 
-    def forwardpropagation(self, inputs):
+    def __forwardpropagation(self, inputs):
         """
             Description: Gives a response based on input
         """
@@ -132,13 +131,13 @@ class ConvolutionalNet():
         # My goal was to do something like this, but it's unreadable
         #return _fully_connected(_max_pooling(_rectified_linear(_convolution(inputs, kernels))))
 
-        res_conv = _convolution(inputs, self.kernels)
-        res_relu = _rectified_linear(res_conv)
-        res_pool = _avg_pool(res_relu)
-        res_full = _fully_connected(res_pool, self.full_connected_weights, self.unit_count)
-        return _softmax(res_full)
+        res_conv = self.__convolution(inputs)
+        res_relu = self.__rectified_linear(res_conv)
+        res_pool = self.__avg_pool(res_relu)
+        res_full = self.__fully_connected(res_pool, self.full_connected_weights)
+        return self.__softmax(res_full)
 
-    def backpropagation(self, mean_squared_error):
+    def __backpropagation(self, mean_squared_error):
         """
             Description: Weight adjusting algorithm
         """
@@ -159,8 +158,8 @@ class ConvolutionalNet():
             print('Iteration #{}'.format(x))
             errors = np.zeros((batch_size, self.output_size))
             for y in range(batch_size):
-                errors[y, :] = (self.feedforward(data[x * batch_size + y]) - labels[x * batch_size + y])**2
-            self.backpropagation(np.mean(errors, axis=1))
+                errors[y, :] = (self.__forwardpropagation(data[x * batch_size + y]) - labels[x * batch_size + y])**2
+            self.__backpropagation(np.mean(errors, axis=1))
 
     def test(self, data, labels):
         """
@@ -172,7 +171,7 @@ class ConvolutionalNet():
 
         good = 0
         for x in range(np.shape(data)[0]):
-            if np.argmax(feedforward(data[x, :])) == np.argmax(labels[x, :])
+            if np.argmax(feedforward(data[x, :])) == np.argmax(labels[x, :]):
                 good += 1
 
         print('The network successfully identified {} / {} examples.'.format(good, np.shape(data)[0]))

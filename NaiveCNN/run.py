@@ -1,5 +1,5 @@
 import sys
-import numpy
+import numpy as np
 
 from model import ConvolutionalNet
 from data_manager import load_data
@@ -13,19 +13,22 @@ def main(args):
     # Get the data
     train_data, train_labels, test_data, test_labels = load_data(args[1])
 
+    print(np.shape(train_data))
+
     # Build our ConvNet
     conv_net = ConvolutionalNet(
-        args[5], 
-        args[6], 
-        np.shape(train_data[0])[1], 
+        int(args[5]), 
+        int(args[6]), 
+        np.shape(train_data)[1], 
         np.shape(test_data[0])[1]
     )
 
     # Train the ConvNet
-    conv_net.train(train_data, train_labels, args[2], args[3], args[4])
+    conv_net.train(train_data, train_labels, int(args[2]), int(args[3]), float(args[4]))
 
     # Test the ConvNet
     conv_net.test(test_data, test_labels)
 
+if __name__=='__main__':
     # Usage: run.py [data_path] [batch_size] [iteration_count] [alpha] [kernel_count] [kernel_size]
     main(sys.argv)
