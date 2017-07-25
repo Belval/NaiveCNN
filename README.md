@@ -1,3 +1,5 @@
+**Backprogragation isn't implemented yet**
+
 # What is NaiveCNN?
 
 A naive implementation of a Convolutional Network in Python 3 that learn how to classify the CIFAR-10 dataset.
